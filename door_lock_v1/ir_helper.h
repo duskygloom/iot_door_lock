@@ -11,9 +11,9 @@ enum IrCommand {
     Key7,       Key8,       Key9, 
     KeyStar,    Key0,       KeyHash, 
                 KeyUp, 
-    KeyLeft,    KeyOK,      KeyRight, 
+    KEY_LEFT,    KEY_OK,      KEY_RIGHT, 
                 KeyDown,
-    KeyUnknown
+    KEY_UNKNOWN
 };
 
 String get_command_string(IrCommand command);

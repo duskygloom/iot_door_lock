@@ -3,3 +3,6 @@
 
 # build directory
 build/
+
+# secret
+secret_pin.h

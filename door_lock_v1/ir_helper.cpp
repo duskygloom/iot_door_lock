@@ -30,15 +30,15 @@ String get_command_string(IrCommand command)
             return String("#");
         case KeyUp:
             return String("Up");
-        case KeyLeft:
+        case KEY_LEFT:
             return String("Left");
-        case KeyOK:
+        case KEY_OK:
             return String("OK");
-        case KeyRight:
+        case KEY_RIGHT:
             return String("Right");
         case KeyDown:
             return String("Down");
-        case KeyUnknown:
+        case KEY_UNKNOWN:
             return String("Unknown");
     }
 }

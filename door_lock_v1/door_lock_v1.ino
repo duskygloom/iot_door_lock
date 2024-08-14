@@ -1,14 +1,23 @@
+/**
+ * @brief
+ * Door lock using fingerprint and IR.
+ */
+
 #include "IRremote.h"
 #include "Adafruit_Fingerprint.h"
 
 #include "ir_helper.h"
 #include "lcd_helper.h"
 #include "lcd_modified.h"
+#include "secret_pin.h"
 
 #define DEBUG_MODE
 
 #define IR_PIN 27
 #define RELAY_PIN 26
+#define TOUCH_PIN 33
+#define BUTTON_PIN 25
+
 #define MAX_ADMINS 4
 #define PIN_TIMEOUT 2000
 #define CLEAR_TIMEOUT 4000
@@ -78,15 +87,13 @@ IrCommand get_command(IRData data)
         case 0xf20d: return Key0;
         case 0xf10e: return KeyHash;
         case 0xee11: return KeyUp;
-        case 0xeb14: return KeyLeft;
-        case 0xea15: return KeyOK;
-        case 0xe916: return KeyRight;
+        case 0xeb14: return KEY_LEFT;
+        case 0xea15: return KEY_OK;
+        case 0xe916: return KEY_RIGHT;
         case 0xe619: return KeyDown;
-        default: return KeyUnknown;
+        default: return KEY_UNKNOWN;
     }
 }
-
-const IrCommand correctPin[MAX_PIN_BUFFER] = { Key2, Key0, Key2, Key4 };
 
 IrCommand pinBuffer[MAX_PIN_BUFFER];
 
@@ -184,8 +191,8 @@ void setupFinger()
         Serial.println("Fingerprint sensor not detected.");
         useFingerprint = false;
         displayFingerStatus();
-        Serial.println(String("Retrying after ") + FINGER_TIMEOUT/1000 + " seconds...");
-        delay(FINGER_TIMEOUT);
+        Serial.println(String("Retrying after ") + SCAN_TIMEOUT/1000 + " seconds...");
+        delay(SCAN_TIMEOUT);
         if (finger.verifyPassword()) {
             Serial.println("Fingerprint sensor detected.");
             useFingerprint = true;
@@ -219,6 +226,10 @@ void setup()
     setupFinger();
     setupIR();
     setupRelay();
+    // touch
+    pinMode(TOUCH_PIN, INPUT);
+    // push button
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
 }
 
 
@@ -387,11 +398,11 @@ void enrollFingerprint()
     // release finger
     lcd.printLine("Release...", 2, LINE_CENTER);
     while ((currTime = millis()) < startTime + ENROLL_TIMEOUT && getFingerImage() != FINGER_NOT_FOUND)
-        delay(FINGER_FAST_TIMEOUT);
+        delay(SCAN_FAST_TIMEOUT);
     // first scan
     lcd.printLine("Press to scan...", 2, LINE_CENTER);
     while ((currTime = millis()) < startTime + ENROLL_TIMEOUT && getFingerImage() != FINGER_OK)
-        delay(FINGER_FAST_TIMEOUT);
+        delay(SCAN_FAST_TIMEOUT);
     // if timed out
     if (currTime > startTime + ENROLL_TIMEOUT) {
         lcd.printLine("Timed out!", 2, LINE_CENTER);
@@ -406,12 +417,12 @@ void enrollFingerprint()
     // release finger
     lcd.printLine("Release...", 2, LINE_CENTER);
     while ((currTime = millis()) < startTime + ENROLL_TIMEOUT && getFingerImage() != FINGER_NOT_FOUND)
-        delay(FINGER_FAST_TIMEOUT);
+        delay(SCAN_FAST_TIMEOUT);
     // second scan
     lcd.printLine("Press to verify...", 2, LINE_CENTER);
     startTime = millis();
     while ((currTime = millis()) < startTime + ENROLL_TIMEOUT && getFingerImage() != FINGER_OK)
-        delay(FINGER_FAST_TIMEOUT);
+        delay(SCAN_FAST_TIMEOUT);
     // if timed out
     if (currTime > startTime + ENROLL_TIMEOUT) {
         lcd.printLine("Timed out!", 2, LINE_CENTER);
@@ -487,7 +498,7 @@ void closeRelay()
         relayOff();
 }
 
-void controlIR()
+void handleIR()
 {
     // pin detection timeout
     if (millis() > lastIR + PIN_TIMEOUT && pinIndex > 0) {
@@ -508,7 +519,7 @@ void controlIR()
     if (IrReceiver.decode()) {
         IrCommand command = get_command(IrReceiver.decodedIRData);
         // add ir commands to buffer
-        if (pinIndex < MAX_PIN_BUFFER && command != KeyUnknown) {
+        if (pinIndex < MAX_PIN_BUFFER && command != KEY_UNKNOWN) {
             pinBuffer[pinIndex++] = command;
             displayPinStatus();
             serialDebug("Added to PIN buffer.");
@@ -543,23 +554,33 @@ void controlFinger()
     }
 }
 
+#define TOUCH_ON (digitalRead(TOUCH_PIN) == HIGH)
+#define BUTTON_ON (digitalRead(BUTTON_PIN) == LOW)
+
 
 /* LOOP */
 
 void loop()
 {
     if (millis() % GENERAL_TIMEOUT == 0) {
-        controlIR();
+        handleIR();
         clearLines();
         closeRelay();
+        // button
+        if (BUTTON_ON) {
+            relayOn();
+            serialDebug("Door opened with button.");
+        }
     }
     /**
      * @todo
      * Scan for fingerprints only when touch is active.
      * Currently fingerprints are scanned every second.
      */
-    if (useFingerprint && millis() % FINGER_TIMEOUT == 0)
+    if (useFingerprint && millis() % SCAN_TIMEOUT == 0) {
+        serialDebug(String("Touch: ") + (TOUCH_ON ? "ON" : "OFF"));
         controlFinger();
+    }
     // 1 millisecond delay
 	delay(1);
 }
