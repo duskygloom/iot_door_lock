@@ -24,6 +24,8 @@
 
 #define IR_PIN 27
 
+#define LCD_LINE_TIMEOUT 1000
+
 #define DEBUG_MODE
 
 
@@ -48,10 +50,17 @@ void serialDebug(const String &message)
 
 LiquidCrystal_I2C lcd(LCD_COLS, LCD_ROWS);
 
+/**
+ * @note
+ * Used to store timestamps when a line is displayed in LCD.
+ * Helps to erase the line after sometime.
+ */
+unsigned long lastLines[LCD_ROWS] = {0};
+
 void setupLCD()
 {
     uint8_t address = get_i2c_address();
-	Serial.println(String("LCD I2C address: ") + address);
+	serialDebug(String("LCD I2C address: ") + address);
 	lcd.setAddress(address);
 	lcd.init();
     lcd.clear();
@@ -60,7 +69,22 @@ void setupLCD()
     lcd.createChar(UNLOCKED_EMOJI, unlocked_emoji);
     lcd.createChar(UNSELECTED_EMOJI, unselected_emoji);
     lcd.createChar(SELECTED_EMOJI, selected_emoji);
-	lcd.printLine("IoT Club", 0, LINE_CENTER, false);
+	lcd.printLine("IoT Club", 0);
+}
+
+void printLine(const String &text, int line, LineAlignment align = LINE_CENTER, bool eraseLine = true)
+{
+    lcd.printLine(text, line, align, eraseLine);
+    lastLines[line] = millis();
+}
+
+void clearLines()
+{
+    for (int i = 0; i < LCD_ROWS; ++i)
+        if (lastLines[i] > 0 && millis() > lastLines[i] + LCD_LINE_TIMEOUT) {
+            lcd.clearLine(i);
+            lastLines[i] = 0;
+        }
 }
 
 
@@ -76,7 +100,7 @@ void activateRelay()
     digitalWrite(RELAY_PIN, LOW);
     lastRelay = millis();
     lcd.setCursor(LCD_COLS - 1, 0);
-    lcd.write(LOCKED_EMOJI);
+    lcd.write(UNLOCKED_EMOJI);
 }
 
 static inline void deactivateRelay()
@@ -125,10 +149,65 @@ void setupReader()
 
 int controller = 0;
 
+void unlockControl()
+{
+    activateRelay();
+    serialDebug("Door unlocked with remote.");
+}
+
+/**
+ * @note
+ * Contains functions for each control state.
+ */
+void (*controlFunctions[])() = {
+    unlockControl
+};
+
+const int numControls = sizeof(controlFunctions) / sizeof(void(*)());
+
+void displayController()
+{
+    for (int i = 0; i < numControls; ++i) {
+        lcd.setCursor(LCD_COLS - numControls + i, 1);
+        if (i == controller) lcd.write(SELECTED_EMOJI);
+        else lcd.write(UNSELECTED_EMOJI);
+    }
+}
+
+void leftControl()
+{
+    --controller;
+    if (controller < 0) controller = numControls - 1;
+    displayController();
+}
+
+void rightControl()
+{
+    ++controller;
+    if (controller >= numControls) controller = 0;
+    displayController();
+}
+
+void centerControl()
+{
+    controlFunctions[controller]();
+}
+
+/**
+ * @note
+ * Contains functions for each key of remote.
+ */
+void (*keyFunctions[])() = {
+    leftControl,
+    rightControl,
+    centerControl
+};
+
 void setupIR()
 {
     pinMode(IR_PIN, INPUT);
     IrReceiver.begin(IR_PIN, true);
+    displayController();
 }
 
 void handleIR()
@@ -139,17 +218,16 @@ void handleIR()
             case 0x0:
                 break;
             case KEY_LEFT:
-                serialDebug("Left button.");
+                keyFunctions[0]();
                 break;
             case KEY_RIGHT:
-                serialDebug("Right button.");
+                keyFunctions[1]();
                 break;
             case KEY_OK:
-                serialDebug("OK button.");
+                keyFunctions[2]();
                 break;
             default:
-                String commandHex(data, HEX);
-                serialDebug(String("Unknown command 0x") + commandHex);
+                serialDebug(String("Unknown command 0x") + String(data, HEX));
                 break;
         }
         IrReceiver.resume();
@@ -174,6 +252,7 @@ void setup()
 
 void loop()
 {
+    clearLines();
     // button
     if (!RELAY_ON && BUTTON_ON) {
         activateRelay();
@@ -187,11 +266,14 @@ void loop()
             if (rfid == members[i].rfid) {
                 matched = true;
                 activateRelay();
-                serialDebug(String("Door opened with RFID by ") + members[i].name + ".");
+                serialDebug(members[i].name + " opened the door with RFID.");
+                printLine("Welcome " + members[i].name + "!", 2);
                 break;
             }
-        if (!matched)
-            serialDebug(rfid.toString() + " tried to open the door using RFID.");
+        if (!matched) {
+            serialDebug(rfid.toString() + " tried to open the door with RFID.");
+            printLine("Unrecognized RFID.", 2);
+        }
     }
     // IR remote
     handleIR();

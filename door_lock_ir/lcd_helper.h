@@ -1,7 +1,7 @@
 #ifndef LCD_HELPER_H
 #define LCD_HELPER_H
 
-#include "Arduino.h"
+#include <Arduino.h>
 
 #define LCD_ROWS 4
 #define LCD_COLS 20

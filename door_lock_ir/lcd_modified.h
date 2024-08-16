@@ -95,7 +95,7 @@ public:
   LiquidCrystal_I2C(uint8_t lcd_cols, uint8_t lcd_rows);
   void setAddress(uint8_t address);
   void printText(const String &text);
-  void printLine(const String &text, int line, LineAlignment align = LINE_LEFT, bool eraseLine = true);
+  void printLine(const String &text, int line, LineAlignment align = LINE_CENTER, bool eraseLine = true);
   void clearLine(int line);
 
 ////compatibility API function aliases
