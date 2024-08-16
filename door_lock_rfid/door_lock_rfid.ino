@@ -108,11 +108,11 @@ void loop()
             if (rfid == members[i].rfid) {
                 matched = true;
                 activateRelay();
-                serialDebug(String("Door opened with RFID by ") + members[i].name + ".");
+                serialDebug(members[i].name + " opened door with RFID.");
                 break;
             }
         if (!matched)
-            serialDebug(rfid.toString() + " tried to open the door using RFID.");
+            serialDebug(rfid.toString() + " tried to open the door with RFID.");
     }
     // close door
     if (RELAY_ON && RELAY_TIMED_OUT) {

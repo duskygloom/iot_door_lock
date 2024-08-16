@@ -35,9 +35,9 @@ public:
 
     String toString() {
         if (size <= 0) return "";
-        String rfid = (bytes[0] > 9 ? "" : "0") + String(bytes[0], 16);
+        String rfid = (bytes[0] > 9 ? "" : "0") + String(bytes[0], HEX);
         for (int i = 1; i < size; ++i)
-            rfid += String("-") + String(bytes[i], 10);
+            rfid += String(":") + String(bytes[i], HEX);
         return rfid;
     }
 
