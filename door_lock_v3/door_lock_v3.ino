@@ -6,10 +6,10 @@
  * - Enroll fingerprint
  */
 
-#include "SPI.h"
-#include "IRremote.h"
-#include "MFRC522.h"
-#include "Adafruit_Fingerprint.h"
+#include <SPI.h>
+#include <MFRC522.h>
+#include <IRremote.h>
+#include <Adafruit_Fingerprint.h>
 
 #include "ir_helper.h"
 #include "lcd_helper.h"

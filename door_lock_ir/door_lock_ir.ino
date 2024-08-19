@@ -1,6 +1,6 @@
 /**
  * @todo
- * door_lock_ir + ir and lcd
+ * door_lock_rfid + ir and lcd
  */
 
 #include <SPI.h>
